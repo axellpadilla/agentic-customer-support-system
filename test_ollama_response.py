@@ -4,16 +4,18 @@ Script simple para probar que Ollama responde correctamente a mensajes
 """
 import subprocess
 import sys
-import json
+import os
 import time
+from dotenv import load_dotenv
+load_dotenv()
 
 def test_ollama_response():
     """Prueba que Ollama responda correctamente."""
     print("🧪 Probando respuesta de Ollama...")
     print("=" * 50)
     
-    model = "qwen2.5:0.5b"
-    prompt = "Di solo 'Hola' en español y nada más"
+    model = os.getenv("OLLAMA_MODEL")
+    prompt = "Di solo 'Hola'"
     
     print(f"\n📤 Enviando mensaje al modelo '{model}'...")
     print(f"   Prompt: {prompt}\n")

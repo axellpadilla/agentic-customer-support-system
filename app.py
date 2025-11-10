@@ -37,17 +37,41 @@ st.markdown("""
         font-size: 0.8rem;
         font-weight: bold;
     }
-    .user-message {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin: 0.5rem 0;
+    
+    /* Light mode styles */
+    @media (prefers-color-scheme: light) {
+        .user-message {
+            background-color: #f0f2f6;
+            color: #000000;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 0.5rem 0;
+        }
+        .assistant-message {
+            background-color: #e8f0fe;
+            color: #000000;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 0.5rem 0;
+        }
     }
-    .assistant-message {
-        background-color: #e8f0fe;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin: 0.5rem 0;
+    
+    /* Dark mode styles */
+    @media (prefers-color-scheme: dark) {
+        .user-message {
+            background-color: #2d3748;
+            color: #ffffff;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 0.5rem 0;
+        }
+        .assistant-message {
+            background-color: #1a202c;
+            color: #ffffff;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 0.5rem 0;
+        }
     }
     </style>
 """, unsafe_allow_html=True)

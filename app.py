@@ -233,14 +233,14 @@ with main_container:
                 # Add AI response to history
                 st.session_state.chat_history.append({
                     "role": "assistant",
-                    "content": response.data.response,
+                    "content": response.output.response,
                     "metadata": {
-                        "sentiment": response.data.sentiment,
-                        "needs_escalation": response.data.needs_escalation,
-                        "follow_up_required": response.data.follow_up_required,
-                        "response_type": response.data.response_type.value,
-                        "confidence_score": response.data.confidence_score,
-                        "suggested_actions": response.data.suggested_actions
+                        "sentiment": response.output.sentiment,
+                        "needs_escalation": response.output.needs_escalation,
+                        "follow_up_required": response.output.follow_up_required,
+                        "response_type": response.output.response_type.value,
+                        "confidence_score": response.output.confidence_score,
+                        "suggested_actions": response.output.suggested_actions
                     }
                 })
                 st.rerun()

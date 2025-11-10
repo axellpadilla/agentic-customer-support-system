@@ -57,7 +57,7 @@ pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-**¡Eso es todo!** El sistema instalará y configurará Ollama automáticamente la primera vez que lo ejecutes usando el [método comprobado de instalación binaria](https://github.com/BlackTechX011/Ollama-in-GitHub-Codespaces).
+**¡Eso es todo!** El sistema instalará y configurará Ollama automáticamente la primera vez que lo ejecutes.
 
 ### Método 3: Script de Inicio Rápido
 
@@ -99,12 +99,31 @@ python -m streamlit run app.py
 
 ## 🔧 Configuración (Opcional)
 
-Puedes personalizar el modelo de Ollama creando un archivo `.env`:
+El sistema soporta múltiples proveedores de LLM con detección automática:
+
+### Opción 1: GitHub Models (Recomendado) 🌟
+
+Usa modelos gratuitos de GitHub con tu Personal Access Token:
+
+```bash
+# Crear .env con siguiendo .env.example
+
+**Ventajas:**
+- ✅ Gratis para uso personal hasta 15 solicitudes por minuto
+- ✅ Ultra-rápido (~1-3 segundos)
+- ✅ Modelos de alta calidad
+- ✅ Sin instalación local necesaria
+
+**Crear token:** [github.com/settings/tokens](https://github.com/settings/tokens)
+
+**Modelos disponibles:**
+[github.com/marketplace/models](https://github.com/marketplace/models)
+
+### Opción 3: Ollama Local (Por Defecto)
 
 ```bash
 OLLAMA_MODEL=qwen2.5:0.5b  # Modelo ultra-rápido (recomendado para Codespaces)
 ```
-
 ### Modelos Recomendados por Velocidad
 
 **Para GitHub Codespaces (recursos limitados):**
@@ -130,20 +149,6 @@ echo "OLLAMA_MODEL=qwen2.5:0.5b" > .env
 export OLLAMA_MODEL=qwen2.5:0.5b
 ```
 
-📖 **Ver guía completa de modelos:** [MODELS.md](MODELS.md)
-
-## 🧪 Pruebas
-
-Antes de ejecutar la aplicación, puedes verificar que todo funciona:
-
-```bash
-# Prueba 1: Verificar instalación
-python3 test_installation.py
-
-# Prueba 2: Probar respuesta de Ollama
-python3 test_ollama_response.py
-```
-
 ## 💻 Uso
 
 Una vez iniciada la aplicación con `python -m streamlit run app.py`:
@@ -167,25 +172,21 @@ Una vez iniciada la aplicación con `python -m streamlit run app.py`:
 └── README.md            # Documentación
 ```
 
-## 🔄 Alternativa: Usar OpenAI API
+## 🔄 Prioridad de Proveedores
 
-Si prefieres usar OpenAI en lugar de Ollama local:
+El sistema detecta automáticamente qué proveedor usar en este orden:
 
-1. Obtén una API key de [platform.openai.com](https://platform.openai.com/api-keys)
+1. **GitHub Models** (si `LLM_TOKEN`, `LLM_ENDPOINT`, `LLM_MODEL` están definidos)
+2. **OpenAI API** (si `USE_OPENAI=true` y `OPENAI_API_KEY` está definido)  
+3. **Ollama Local** (por defecto, usa `OLLAMA_MODEL`)
 
-2. Crea un archivo `.env`:
-```
-OPENAI_API_KEY=tu_api_key_aqui
-USE_OPENAI=true
-```
+**Comparativa:**
 
-3. El sistema usará automáticamente el modelo GPT-4o-mini de OpenAI
-
-**Beneficios:**
-- Sin descargas de modelos locales
-- Inferencia más rápida
-- Rendimiento consistente
-- Sin límites de recursos
+| Proveedor | Velocidad | Costo | Instalación | Recomendado para |
+|-----------|-----------|-------|-------------|------------------|
+| **GitHub Models** 🌟 | ⚡⚡⚡ Ultra-rápido | Gratis | Ninguna | Codespaces, desarrollo |
+| **OpenAI API** | ⚡⚡⚡ Ultra-rápido | De pago | Ninguna | Producción |
+| **Ollama Local** | ⚡ Rápido | Gratis | Requerida | Local, privacidad |
 
 ## 🔧 Instalación Manual de Ollama
 

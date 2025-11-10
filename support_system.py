@@ -1,3 +1,4 @@
+from ollama_manager import ensure_ollama_ready
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from enum import Enum
@@ -8,14 +9,15 @@ from pydantic import BaseModel, Field, field_validator
 from pydantic_ai import Agent, ModelRetry, RunContext, Tool
 from pydantic_ai.models.openai import OpenAIChatModel, OpenAIModel
 from pydantic_ai.providers.ollama import OllamaProvider
+from pydantic_ai.providers.openai import OpenAIProvider
 
 from dotenv import load_dotenv
 load_dotenv()
 
 # Import and initialize Ollama manager
-from ollama_manager import ensure_ollama_ready
 
 nest_asyncio.apply()
+
 
 class OrderStatus(str, Enum):
     PENDING = "pending"
@@ -26,6 +28,7 @@ class OrderStatus(str, Enum):
     RETURNED = "returned"
     ON_HOLD = "on_hold"
 
+
 class QueryCategory(str, Enum):
     SHIPPING = "shipping"
     BILLING = "billing"
@@ -34,10 +37,12 @@ class QueryCategory(str, Enum):
     RETURNS = "returns"
     GENERAL = "general"
 
+
 class CustomerTier(str, Enum):
     BASIC = "basic"
     PREMIUM = "premium"
     VIP = "vip"
+
 
 class Item(BaseModel):
     """Enhanced structure for order items."""
@@ -51,13 +56,14 @@ class Item(BaseModel):
     warranty_info: Optional[str] = None
     return_eligible: bool = True
     return_window_days: int = 30
-    
+
     @field_validator('price')
     @classmethod
     def validate_price(cls, v: float) -> float:
         if v < 0:
             raise ValueError('Price must be non-negative')
         return v
+
 
 class Order(BaseModel):
     """Enhanced structure for order details."""
@@ -77,13 +83,14 @@ class Order(BaseModel):
     payment_method: str = "credit_card"
     shipping_method: str = "standard"
     return_deadline: Optional[datetime] = None
-    
+
     @field_validator('return_deadline')
     @classmethod
     def set_return_deadline(cls, v: Optional[datetime], info) -> datetime:
         if v is None and 'order_date' in info.data:
             return info.data['order_date'] + timedelta(days=30)
         return v
+
 
 class CustomerInteraction(BaseModel):
     """Structure for tracking customer interactions."""
@@ -95,6 +102,7 @@ class CustomerInteraction(BaseModel):
     resolution_time: Optional[datetime] = None
     satisfaction_score: Optional[int] = None
     notes: Optional[str] = None
+
 
 class CustomerDetails(BaseModel):
     """Enhanced structure for customer information."""
@@ -111,7 +119,8 @@ class CustomerDetails(BaseModel):
     last_purchase_date: Optional[datetime] = None
     preferred_language: str = "en"
     marketing_preferences: Dict[str, bool] = Field(default_factory=dict)
-    interaction_history: List[CustomerInteraction] = Field(default_factory=list)
+    interaction_history: List[CustomerInteraction] = Field(
+        default_factory=list)
     saved_payment_methods: List[Dict[str, str]] = Field(default_factory=list)
     preferences: Dict[str, Any] = Field(default_factory=dict)
     notes: Optional[str] = None
@@ -122,6 +131,7 @@ class CustomerDetails(BaseModel):
         if v < 0:
             raise ValueError('Total spent must be non-negative')
         return v
+
 
 class ResponseModel(BaseModel):
     """Enhanced structured response with metadata."""
@@ -138,6 +148,7 @@ class ResponseModel(BaseModel):
     knowledge_base_refs: List[str] = Field(default_factory=list)
     escalation_reason: Optional[str] = None
     satisfaction_prediction: float = Field(ge=0.0, le=1.0)
+
 
 # Enhanced shipping information database
 shipping_info_db: Dict[str, Dict[str, Any]] = {
@@ -184,25 +195,43 @@ knowledge_base: Dict[str, Any] = {
     }
 }
 
-model_name = os.getenv('OLLAMA_MODEL', 'qwen2.5:0.5b')
+# Configuración del modelo - soporta múltiples proveedores
+llm_token = os.getenv('LLM_TOKEN')
+llm_endpoint = os.getenv('LLM_ENDPOINT')
+llm_model = os.getenv('LLM_MODEL')
 use_openai = os.getenv('USE_OPENAI', 'false').lower() == 'true'
+openai_api_key = os.getenv('OPENAI_API_KEY')
+ollama_model = os.getenv('OLLAMA_MODEL', 'qwen2.5:0.5b')
 
-if use_openai:
-    # Use OpenAI API instead of local Ollama
-    api_key = os.getenv('OPENAI_API_KEY')
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY environment variable is required when USE_OPENAI=true")
-    # Set the API key in environment for the OpenAI client
-    os.environ['OPENAI_API_KEY'] = api_key
-    model = OpenAIModel('gpt-4o-mini')
+# Prioridad: GitHub Models > OpenAI > Ollama local
+if llm_token and llm_endpoint and llm_model:
+    # Usar GitHub Models u otro proveedor compatible con OpenAI
+    print(f"🔗 Usando modelo externo: {llm_model} via {llm_endpoint}")
+    os.environ['OPENAI_API_KEY'] = llm_token
+    from openai import AsyncOpenAI
+
+    # Crear cliente personalizado con endpoint custom
+    provider = OpenAIProvider(api_key=llm_token,
+                              base_url=llm_endpoint
+                              )
+    model = OpenAIChatModel(llm_model, provider=provider)
+
+elif use_openai and openai_api_key:
+    # Usar OpenAI API
+    print("🔗 Usando OpenAI API")
+    os.environ['OPENAI_API_KEY'] = openai_api_key
+    model = OpenAIChatModel('gpt-4o-mini')
+
 else:
-    # Use local Ollama
-    # Ensure Ollama is running and model is available
-    if not ensure_ollama_ready(model_name, "http://localhost:11434"):
-        raise RuntimeError(f"Failed to initialize Ollama with model '{model_name}'. Please ensure Ollama is installed and try again.")
+    # Usar Ollama local
+    print(f"🤖 Usando Ollama local con modelo: {ollama_model}")
+    # Asegurar que Ollama esté funcionando y el modelo disponible
+    if not ensure_ollama_ready(ollama_model, "http://localhost:11434"):
+        raise RuntimeError(
+            f"Failed to initialize Ollama with model '{ollama_model}'. Please ensure Ollama is installed and try again.")
 
     provider = OllamaProvider(base_url="http://localhost:11434/v1")
-    model = OpenAIChatModel(model_name, provider=provider)
+    model = OpenAIChatModel(ollama_model, provider=provider)
 
 # Enhanced agent with additional context
 agent = Agent(
@@ -224,11 +253,12 @@ agent = Agent(
     ),
 )
 
+
 @agent.system_prompt
 async def add_customer_context(ctx: RunContext[CustomerDetails]) -> str:
     """Add comprehensive customer context to system prompt."""
     customer = ctx.deps
-    
+
     # Get order details
     order_details = []
     if customer.orders:
@@ -255,8 +285,9 @@ async def add_customer_context(ctx: RunContext[CustomerDetails]) -> str:
         "orders": order_details,
         "shipping_info_available": list(shipping_info_db.keys())
     }
-    
+
     return json.dumps(context, default=str)
+
 
 @agent.tool_plain()
 def get_order_and_shipping_status(order_id: Optional[str] = None) -> Dict[str, Any]:
@@ -264,21 +295,22 @@ def get_order_and_shipping_status(order_id: Optional[str] = None) -> Dict[str, A
     try:
         # Get the customer's orders from context
         customer = agent.current_context.deps
-        
+
         if not customer.orders:
             return {
                 "status": "error",
                 "message": "No orders found for this customer.",
                 "data": None
             }
-        
+
         if order_id:
             # Clean up order_id format if needed
             if not order_id.startswith('#'):
                 order_id = f"#{order_id.strip()}"
-                
+
             # Find specific order
-            order = next((o for o in customer.orders if o.order_id == order_id), None)
+            order = next(
+                (o for o in customer.orders if o.order_id == order_id), None)
             if not order:
                 return {
                     "status": "error",
@@ -287,8 +319,9 @@ def get_order_and_shipping_status(order_id: Optional[str] = None) -> Dict[str, A
                 }
         else:
             # Get most recent order
-            order = sorted(customer.orders, key=lambda x: x.order_date, reverse=True)[0]
-        
+            order = sorted(customer.orders,
+                           key=lambda x: x.order_date, reverse=True)[0]
+
         # Prepare response
         response = {
             "status": "success",
@@ -301,13 +334,13 @@ def get_order_and_shipping_status(order_id: Optional[str] = None) -> Dict[str, A
                 "items": [{"name": item.name, "quantity": item.quantity} for item in order.items]
             }
         }
-        
+
         # Add shipping info if available
         if order.order_id in shipping_info_db:
             response["data"]["shipping_info"] = shipping_info_db[order.order_id]
-        
+
         return response
-        
+
     except Exception as e:
         return {
             "status": "error",
@@ -340,6 +373,6 @@ def get_policy_info(policy_type: str, customer_tier: str) -> Dict[str, Any]:
 # )
 
 # response = agent.run_sync(
-#     user_prompt="What's the status of my last order #12345?", 
+#     user_prompt="What's the status of my last order #12345?",
 #     deps=customer
 # )

@@ -2,10 +2,18 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from enum import Enum
 import json
+import os
 import nest_asyncio
 from pydantic import BaseModel, Field, field_validator
 from pydantic_ai import Agent, ModelRetry, RunContext, Tool
-from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.models.openai import OpenAIChatModel, OpenAIModel
+from pydantic_ai.providers.ollama import OllamaProvider
+
+from dotenv import load_dotenv
+load_dotenv()
+
+# Import and initialize Ollama manager
+from ollama_manager import ensure_ollama_ready
 
 nest_asyncio.apply()
 
@@ -176,12 +184,30 @@ knowledge_base: Dict[str, Any] = {
     }
 }
 
-model = OpenAIModel("gpt-4")
+model_name = os.getenv('OLLAMA_MODEL', 'qwen2.5:0.5b')
+use_openai = os.getenv('USE_OPENAI', 'false').lower() == 'true'
+
+if use_openai:
+    # Use OpenAI API instead of local Ollama
+    api_key = os.getenv('OPENAI_API_KEY')
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY environment variable is required when USE_OPENAI=true")
+    # Set the API key in environment for the OpenAI client
+    os.environ['OPENAI_API_KEY'] = api_key
+    model = OpenAIModel('gpt-4o-mini')
+else:
+    # Use local Ollama
+    # Ensure Ollama is running and model is available
+    if not ensure_ollama_ready(model_name, "http://localhost:11434"):
+        raise RuntimeError(f"Failed to initialize Ollama with model '{model_name}'. Please ensure Ollama is installed and try again.")
+
+    provider = OllamaProvider(base_url="http://localhost:11434/v1")
+    model = OpenAIChatModel(model_name, provider=provider)
 
 # Enhanced agent with additional context
 agent = Agent(
     model=model,
-    result_type=ResponseModel,
+    output_type=ResponseModel,
     deps_type=CustomerDetails,
     retries=3,
     system_prompt=(
@@ -297,23 +323,23 @@ def get_policy_info(policy_type: str, customer_tier: str) -> Dict[str, Any]:
         raise ModelRetry(f"Unknown policy type: {policy_type}")
     return knowledge_base[policy_type]
 
-# Example usage
-customer = CustomerDetails(
-    customer_id="1",
-    name="John Doe",
-    email="john.doe@example.com",
-    tier=CustomerTier.PREMIUM,
-    interaction_history=[
-        CustomerInteraction(
-            interaction_id="INT001",
-            channel="chat",
-            query_type=QueryCategory.SHIPPING,
-            resolved=True
-        )
-    ]
-)
+# Example usage (commented out to avoid running on import)
+# customer = CustomerDetails(
+#     customer_id="1",
+#     name="John Doe",
+#     email="john.doe@example.com",
+#     tier=CustomerTier.PREMIUM,
+#     interaction_history=[
+#         CustomerInteraction(
+#             interaction_id="INT001",
+#             channel="chat",
+#             query_type=QueryCategory.SHIPPING,
+#             resolved=True
+#         )
+#     ]
+# )
 
-response = agent.run_sync(
-    user_prompt="What's the status of my last order #12345?", 
-    deps=customer
-)
+# response = agent.run_sync(
+#     user_prompt="What's the status of my last order #12345?", 
+#     deps=customer
+# )
